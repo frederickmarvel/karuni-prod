@@ -1,0 +1,6 @@
+import {jwtVerify,createRemoteJWKSet} from 'jose';
+import {randomBytes} from 'node:crypto';
+const keys=createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));const pending=new Map();const id=process.env.KARUNI_GOOGLE_CLIENT_ID;
+export function challenge(res){if(!id||pending.size>=4096)throw Error('Unavailable');const nonce=randomBytes(32).toString('hex');pending.set(nonce,Date.now()+300000);res.setHeader('Set-Cookie',`__Host-karuni_nonce=${nonce}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=300`);return {nonce,id}}
+setInterval(()=>{for(const [k,t] of pending)if(t<Date.now())pending.delete(k)},60000).unref();
+export async function verify(q,b){const n=q.headers.cookie?.match(/(?:^|;\s*)__Host-karuni_nonce=([a-f0-9]{64})(?:;|$)/)?.[1],t=pending.get(n);if(!t||t<Date.now()||typeof b.credential!=='string'||b.credential.length>16000)throw Error();pending.delete(n);const {payload:p}=await jwtVerify(b.credential,keys,{issuer:['https://accounts.google.com','accounts.google.com'],audience:id,algorithms:['RS256'],requiredClaims:['exp','iat','sub']});if(p.nonce!==n||p.email_verified!==true||typeof p.email!=='string'||!p.email.includes('@')||typeof p.sub!=='string'||!p.sub)throw Error();return p}

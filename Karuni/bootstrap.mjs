@@ -1,0 +1,4 @@
+import pg from 'pg';import {randomBytes,scryptSync} from 'node:crypto';import fs from 'node:fs';
+const pool=new pg.Pool({connectionString:process.env.KARUNI_POSTGRES_URL});const email=process.env.KARUNI_ADMIN_EMAIL||'owner@karuni.app',password=randomBytes(24).toString('base64url'),salt=randomBytes(32).toString('hex');
+const old=await pool.query('SELECT id FROM users WHERE email=$1',[email]);if(old.rowCount)throw Error('Admin already exists; do not reset');
+await pool.query('INSERT INTO users(email,password,role) VALUES($1,$2,$3)',[email,salt+':'+scryptSync(password,salt,64).toString('hex'),'master']);fs.writeFileSync('/root/karuni-admin-handoff.json',JSON.stringify({url:(process.env.KARUNI_ORIGIN||'https://karuni.app')+'/admin',email,password}),{mode:0o600});await pool.end();console.log('Master admin provisioned; credential saved privately');

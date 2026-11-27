@@ -1,0 +1,22 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      KARUNI_DOMAIN: ${KARUNI_DOMAIN:?Set KARUNI_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+        restart: true
+
+volumes:
+  caddy_data:
+  caddy_config:

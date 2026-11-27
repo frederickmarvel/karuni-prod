@@ -1,0 +1,21 @@
+{
+  "name": "karuni",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "deploy:check": "node scripts/deploy-preflight.mjs",
+    "catalog:normalize": "node scripts/normalize-catalog.mjs",
+    "check": "find . -path './node_modules' -prune -o -type f \\( -name '*.js' -o -name '*.mjs' \\) -exec node --check {} \\;",
+    "test": "node --test test/*.test.mjs",
+    "test:postgres": "node postgres/test.mjs"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "14.1.0",
+    "jose": "6.2.18",
+    "pg": "8.23.1"
+  }
+}

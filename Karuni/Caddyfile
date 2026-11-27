@@ -1,0 +1,7 @@
+{$KARUNI_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:18786
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}
