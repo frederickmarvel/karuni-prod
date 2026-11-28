@@ -1,0 +1,14 @@
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Database backups
+/backups/
+*.dump
+*.sql.gz
+
+# Private keys
+*.pem
+*.key

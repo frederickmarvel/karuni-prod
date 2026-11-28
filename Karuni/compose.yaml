@@ -1,4 +1,16 @@
 services:
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
@@ -7,7 +19,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-karuni}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/10-karuni.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -25,11 +37,15 @@ services:
     environment:
       PORT: 18786
       KARUNI_POSTGRES_URL: postgresql://${POSTGRES_USER:-karuni}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-karuni}
+      KARUNI_REDIS_URL: redis://redis:6379
     ports:
       - "${KARUNI_BIND:-127.0.0.1}:${KARUNI_PORT:-18786}:18786"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      redis:
+        condition: service_healthy
+        restart: true
       postgres:
         condition: service_healthy
         restart: true
@@ -42,3 +58,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

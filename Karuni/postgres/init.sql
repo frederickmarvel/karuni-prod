@@ -98,4 +98,28 @@ CREATE TABLE IF NOT EXISTS google_ids (
   uid BIGINT NOT NULL UNIQUE REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS referral_codes (
+  uid BIGINT PRIMARY KEY REFERENCES users(id),
+  code TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS referral_agents (
+  uid BIGINT PRIMARY KEY REFERENCES users(id),
+  rate_bps INTEGER NOT NULL CHECK (rate_bps BETWEEN 0 AND 10000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS usage_daily_model (
+  uid BIGINT NOT NULL REFERENCES users(id),
+  day DATE NOT NULL,
+  model TEXT NOT NULL,
+  requests BIGINT NOT NULL DEFAULT 0,
+  input_tokens BIGINT NOT NULL DEFAULT 0,
+  output_tokens BIGINT NOT NULL DEFAULT 0,
+  cost BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid, day, model)
+);
+
 COMMIT;

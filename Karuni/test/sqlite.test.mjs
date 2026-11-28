@@ -63,32 +63,67 @@ test('SQLite store preserves billing, replay, and pending-request invariants',()
     assert.equal(s.usageRequests(uid,{state:'settled',page:1}).has_more,false);
     assert.equal(s.usageLedger(uid,1).has_more,false);
     assert.deepEqual(s.usageByKey(uid).map(x=>({name:x.name,requests:x.requests,input:x.input,output:x.output,charge:x.charge})),[{name:'test key',requests:2,input:4,output:2,charge:14}]);
+    assert.deepEqual(s.usageLog(uid).summary.map(x=>({model:x.model,requests:x.requests,input:x.input,output:x.output,cost:x.cost})),[{model:'test-model',requests:1,input:4,output:2,cost:14}]);
   }finally{
     s.close();
   }
 });
 
-test('approved referral fees transfer atomically to the AI wallet',()=>{
+test('referral bonuses credit the inviter main balance immediately',()=>{
   const s=store(':memory:');
   try{
-    const inviter=s.user('inviter@example.invalid','password'),code=s.referralState(inviter).code;
+    const inviter=s.user('inviter@example.invalid','password');
+    assert.throws(()=>s.referralState(inviter),/not been enabled/);
+    s.setReferralAgent(inviter,true,1000);
+    const code=s.referralState(inviter).code;
     const invitee=s.user('invitee@example.invalid','password','customer',code);
+    const second=s.user('second@example.invalid','password');
+    s.setReferralAgent(inviter,false,1000);
+    assert.throws(()=>s.bindReferral(second,code),/Invalid referral code/);
+    s.setReferralAgent(inviter,true,1000);
     const deposit=s.applyDeposit({uid:invitee,amount:1_000,ref:'deposit-1',actor:inviter,rateBps:1000});
     assert.deepEqual(deposit,{applied:true,id:1,earning:100});
     assert.equal(s.applyDeposit({uid:invitee,amount:1_000,ref:'deposit-1',actor:inviter,rateBps:1000}).applied,false);
     assert.equal(s.account(invitee).balance,1_000);
-    let state=s.referralState(inviter);
-    assert.equal(state.total,0);
-    const earning=s.adminReferralIndex().earnings[0];
-    assert.equal(s.setReferralEarning(earning.id,'approved',inviter),true);
-    state=s.referralState(inviter);
-    assert.equal(state.total,100);
-    assert.deepEqual(s.transferReferral(inviter),{transferred:100,balance:100});
-    state=s.referralState(inviter);
-    assert.equal(state.total,0);
     assert.equal(s.account(inviter).balance,100);
+    const state=s.referralState(inviter);
+    assert.equal(state.total,100);
+    assert.equal(state.referred,1);
+    assert.equal(state.bonuses,1);
+    const earning=s.adminReferralIndex().earnings[0];
+    assert.equal(earning.state,'approved');
+    assert.equal(earning.paid_amount,100);
     assert.throws(()=>s.transferReferral(inviter),/No referral balance available/);
-    assert.equal(s.usageLedger(inviter).data[0].kind,'referral_transfer');
+    assert.equal(s.usageLedger(inviter).data[0].kind,'referral_bonus');
+  }finally{
+    s.close();
+  }
+});
+
+test('Google registration preserves referral attribution',()=>{
+  const s=store(':memory:');
+  try{
+    const inviter=s.user('google-inviter@example.invalid','password');s.setReferralAgent(inviter,true,500);const code=s.referralState(inviter).code;
+    const invitee=s.googleUser('google-subject','google-invitee@example.invalid','encoded-password',code);
+    s.applyDeposit({uid:invitee,amount:2_000,ref:'google-referral-deposit',rateBps:500});
+    assert.equal(s.account(inviter).balance,100);
+    assert.deepEqual({...s.referralState(inviter)},{code,total:100,bonuses:1,referred:1,rateBps:500});
+  }finally{
+    s.close();
+  }
+});
+
+test('QRIS payment settlement is idempotent and applies referral commission',()=>{
+  const s=store(':memory:');
+  try{
+    const inviter=s.user('payment-inviter@example.invalid','password');s.setReferralAgent(inviter,true,1000);const code=s.referralState(inviter).code;
+    const invitee=s.user('payment-invitee@example.invalid','password','customer',code);
+    s.createPaymentOrder({reference:'krq_test',uid:invitee,amountIdr:10_000,credits:10_000_000_000});
+    s.activatePaymentOrder({reference:'krq_test',transactionId:'trx_test',qrUrl:'https://link.belibayar.id/test.png',expiredAt:2_000_000_000});
+    assert.equal(s.settlePayment({reference:'krq_test',transactionId:'trx_test',amountIdr:10_000,status:'paid',rateBps:1000}).applied,true);
+    assert.equal(s.settlePayment({reference:'krq_test',transactionId:'trx_test',amountIdr:10_000,status:'paid',rateBps:1000}).applied,false);
+    assert.equal(s.account(invitee).balance,10_000_000_000);
+    assert.equal(s.account(inviter).balance,1_000_000_000);
   }finally{
     s.close();
   }

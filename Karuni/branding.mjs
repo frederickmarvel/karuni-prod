@@ -7,4 +7,7 @@ const safe=new Set(['Request body must be JSON','Request body is too large','Inv
 safe.add('No referral balance available');
 safe.add('Master admin access required');
 safe.add('Invalid administrator credentials');
+safe.add('QRIS checkout is awaiting merchant credentials');
+safe.add('QRIS payment could not be created. Please check the amount and try again.');
+safe.add('Enter an amount from Rp 1,000 to Rp 100,000,000');
 export function publicError(e){const m=typeof e?.message==='string'?e.message:'';if(Number.isInteger(e?.code)&&safe.has(m))return {message:m};return {message:errors[e?.code]??'Karuni is temporarily unavailable. Please try again.'};}

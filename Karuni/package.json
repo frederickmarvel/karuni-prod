@@ -16,6 +16,7 @@
   "dependencies": {
     "@simplewebauthn/server": "14.1.0",
     "jose": "6.2.18",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "redis": "5.10.0"
   }
 }

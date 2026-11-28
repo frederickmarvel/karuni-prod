@@ -1,0 +1,27 @@
+services:
+  router:
+    image: decolua/9router:latest
+    restart: unless-stopped
+
+    env_file:
+      - ${HOME}/.config/karuni/9router.env
+
+    environment:
+      DATA_DIR: /app/data
+      PORT: 20128
+      HOSTNAME: 0.0.0.0
+
+    ports:
+      - "127.0.0.1:20128:20128"
+
+    volumes:
+      - router_data:/app/data
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  router_data:
